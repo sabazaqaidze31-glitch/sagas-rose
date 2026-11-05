@@ -3,28 +3,29 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="icon" href="data:,">
 <title>WITHIN THE EYE — ASCII HEART</title>
 <style>
-:root{color-scheme:dark;--rose:#f8a3b9;--muted:#777986}
+:root{color-scheme:dark;--rose:#e7a887;--muted:#777986}
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;background:#020207;overflow:hidden}
 body{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#e6bcc7;user-select:none;-webkit-user-select:none}
-#stage{position:absolute;inset:0;display:grid;place-items:center;overflow:hidden;background:radial-gradient(ellipse at center,#10070c 0%,#050308 60%,#000 100%)}
+#stage{position:absolute;inset:0;display:grid;place-items:center;overflow:hidden;background:#020504}
 #scene{display:block;width:100%;height:100%;touch-action:manipulation;cursor:pointer}
 #overlay{pointer-events:none;position:absolute;inset:0;background:repeating-linear-gradient(to bottom,rgba(0,0,0,0) 0,rgba(0,0,0,0) 3px,rgba(0,0,0,.055) 4px);opacity:.42}
-#top{pointer-events:none;position:absolute;top:clamp(16px,4vw,32px);left:clamp(16px,4vw,40px);right:clamp(16px,4vw,40px);display:flex;justify-content:space-between;align-items:center;color:rgba(255,183,203,.45);font-size:clamp(10px,1vw,12px);letter-spacing:.13em;text-shadow:0 0 12px rgba(255,80,110,.18)}
-#top strong{font-weight:500;color:#f8bac7}#label{opacity:.8}
+#top{pointer-events:none;position:absolute;top:clamp(16px,4vw,32px);left:clamp(16px,4vw,40px);right:clamp(16px,4vw,40px);display:flex;justify-content:space-between;align-items:center;color:rgba(240,196,162,.48);font-size:clamp(10px,1vw,12px);letter-spacing:.13em;text-shadow:0 0 12px rgba(226,112,59,.18)}
+#top strong{font-weight:500;color:#e7b393}#label{opacity:.8}
 #bottom{pointer-events:none;position:absolute;bottom:clamp(20px,4vw,36px);left:clamp(16px,4vw,40px);right:clamp(16px,4vw,40px);display:flex;justify-content:space-between;align-items:center;gap:10px}
-#bottom span{font-size:clamp(10px,1vw,12px);letter-spacing:.1em;color:#73606b}
+#bottom span{font-size:clamp(10px,1vw,12px);letter-spacing:.1em;color:#8b746b}
 .controls{pointer-events:auto;display:flex;gap:10px}
-.controls button{background:rgba(12,8,15,.86);color:#edafbF;border:1px solid rgba(245,145,168,.28);border-radius:7px;padding:9px 14px;font-family:inherit;font-size:12px;letter-spacing:.03em;cursor:pointer;transition:color .2s,border-color .2s,background .2s}
-.controls button:hover{color:white;border-color:#db7590;background:rgba(68,25,42,.65)}
+.controls button{background:rgba(6,9,9,.86);color:#e1ab8f;border:1px solid rgba(232,151,101,.3);border-radius:7px;padding:9px 14px;font-family:inherit;font-size:12px;letter-spacing:.03em;cursor:pointer;transition:color .2s,border-color .2s,background .2s}
+.controls button:hover{color:white;border-color:#d59671;background:rgba(73,40,25,.65)}
 @media (max-width:620px){#top{top:16px}#bottom{bottom:16px}#bottom span{max-width:42vw;font-size:9px}.controls button{padding:8px 10px;font-size:11px}#label{display:none}}
 @media (prefers-reduced-motion:reduce){#overlay{display:none}}
 </style>
 </head>
 <body>
 <main id="stage">
-  <canvas id="scene" aria-label="ASCII სიმბოლოებით დახატული თვალი, რომელიც ნელა უახლოვდება გუგას, სადაც მბრწყინავი გული ჩნდება"></canvas>
+  <canvas id="scene" role="img" aria-label="ASCII სიმბოლოებით დახატული თვალი, რომელიც ნელა უახლოვდება გუგას, სადაც მბრწყინავი გული ჩნდება"></canvas>
   <div id="overlay"></div>
   <div id="top"><div><strong>✦</strong> &nbsp; E Y E <span style="opacity:.5"> / </span> H E A R T</div><div id="label">ASCII ART · <span id="clock">00:00</span></div></div>
   <div id="bottom"><span id="status">01 / THE EYE</span><div class="controls"><button id="toggle" aria-label="შეჩერება">Ⅱ &nbsp; პაუზა</button><button id="replay">↻ &nbsp; თავიდან</button></div></div>
@@ -45,8 +46,10 @@ const fract=x=>x-Math.floor(x);
 const rand=(x,y,k=0)=>fract(Math.sin(x*127.1+y*311.7+k*74.7)*43758.5453);
 const o=document.createElement('canvas');o.width=REF_W;o.height=REF_H;
 const g=o.getContext('2d',{willReadFrequently:true});
+const codeCanvas=document.createElement('canvas'),bg=codeCanvas.getContext('2d');
 let pixel=null,W=0,H=0,DPR=1,COLS=150,ROWS=83,fontSize=10,cellW=8,cellH=9,offsetX=0,offsetY=0,drawW=0,drawH=0;
-let stars=[],last=performance.now(),elapsed=0,paused=false,lastRender=0;
+const reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+let stars=[],last=performance.now(),elapsed=reducedMotion?3:0,paused=reducedMotion,lastRender=0;
 
 // Curves use the same anatomy as the reference: almond eye, sclera, amber iris,
 // shadow-black pupil, warm upper lid and the delicate under-eye rim.
@@ -75,7 +78,7 @@ function buildEye(){
  // sclera, filled into eye aperture
  g.save();eyePath();g.clip();
  let scl=g.createRadialGradient(690,429,55,705,430,780);
- scl.addColorStop(0,'#e7e2d7');scl.addColorStop(.32,'#dfdedc');scl.addColorStop(.60,'#bfbabe');scl.addColorStop(.78,'#857d84');scl.addColorStop(1,'#6b293c');
+ scl.addColorStop(0,'#e4e8df');scl.addColorStop(.32,'#d5dfdb');scl.addColorStop(.60,'#a8bcb8');scl.addColorStop(.78,'#687a79');scl.addColorStop(1,'#4a302e');
  g.fillStyle=scl;g.fillRect(0,0,REF_W,REF_H);
  // eyelid cast shadows: strong above + at outer corners
  let shade=g.createLinearGradient(0,242,0,425);
@@ -93,7 +96,7 @@ function buildEye(){
  // iris: dark outer limbal ring and deep amber radial coloration
  const IX=697,IY=436,IR=220;
  let rim=g.createRadialGradient(IX,IY,60,IX,IY,IR+14);
- rim.addColorStop(0,'#0a0609');rim.addColorStop(.38,'#69351e');rim.addColorStop(.52,'#ba7035');rim.addColorStop(.67,'#e9a05d');rim.addColorStop(.80,'#ac6136');rim.addColorStop(.93,'#513021');rim.addColorStop(1,'#1b0e14');
+ rim.addColorStop(0,'#060705');rim.addColorStop(.38,'#512a17');rim.addColorStop(.52,'#9d582a');rim.addColorStop(.67,'#d18a4c');rim.addColorStop(.80,'#9b542d');rim.addColorStop(.93,'#44271d');rim.addColorStop(1,'#10100d');
  g.fillStyle=rim;g.beginPath();g.arc(IX,IY,IR+7,0,2*PI);g.fill();
  g.save();g.beginPath();g.arc(IX,IY,IR-4,0,2*PI);g.clip();
  // radial iris fibres (gold, deep brown and copper; 360 distinct striations)
@@ -127,12 +130,12 @@ function buildEye(){
  g.restore(); // iris clip
  g.restore(); // sclera eye clip
  // layered eyelid contour with soft glow, all as pixel map
- upperCurve();strokeLine(27,'rgba(35,8,17,.82)',12,'rgba(249,83,116,.25)');
- upperCurve();strokeLine(12,'rgba(144,61,77,.94)',9,'rgba(255,103,132,.42)');
- upperCurve();strokeLine(3.5,'rgba(255,166,172,.67)',6,'rgba(255,112,148,.45)');
- lowerCurve();strokeLine(22,'rgba(63,20,31,.77)',11,'rgba(188,60,90,.27)');
- lowerCurve();strokeLine(9,'rgba(197,99,108,.72)',9,'rgba(223,98,113,.24)');
- lowerCurve();strokeLine(2.3,'rgba(255,177,171,.46)',4,'rgba(255,103,146,.24)');
+ upperCurve();strokeLine(27,'rgba(28,13,10,.82)',12,'rgba(223,113,63,.25)');
+ upperCurve();strokeLine(12,'rgba(129,64,45,.94)',9,'rgba(231,128,70,.42)');
+ upperCurve();strokeLine(3.5,'rgba(225,159,114,.67)',6,'rgba(234,129,70,.45)');
+ lowerCurve();strokeLine(22,'rgba(52,24,19,.77)',11,'rgba(182,77,43,.27)');
+ lowerCurve();strokeLine(9,'rgba(170,94,69,.72)',9,'rgba(211,113,74,.24)');
+ lowerCurve();strokeLine(2.3,'rgba(223,165,130,.46)',4,'rgba(230,116,73,.24)');
  // eyelash tufts at the outer corners: understated
  for(let i=0;i<16;i++){
    let a=i/15, x=1070+243*a,y=314+92*a;
@@ -146,15 +149,51 @@ function buildEye(){
  }
  pixel=g.getImageData(0,0,REF_W,REF_H).data;
 }
+const codeLines=[
+ 'def render(upper, dx, dy):    x = np.array([0.52, 0.48, 0.29], np.float32)     # luminance',
+ 'for row in range(height):    shade = sample(x, y)    mask = iris > pupil     return glyphs[row]',
+ 'if 0.10 < glow < 0.72:    color = (amber, ivory, cyan)    canvas.fillText(char, x, y)',
+ 'texture = np.sin(theta * 31.0 + radius * 0.26)   # contour / shadow / reflect',
+ 'while frame < duration:    draw_eye(t)    light = smoothstep(.04, .98, intensity)',
+ 'pixels[y, x] = np.clip(source * exposure + grain, 0, 255)    // vision / memory',
+ 'const iris = radialGradient(cx, cy, pupil, limbus);  let luminance = dot(rgb, weights);'
+];
+function buildCodeBackground(){
+ codeCanvas.width=Math.round(W*DPR);codeCanvas.height=Math.round(H*DPR);
+ bg.setTransform(DPR,0,0,DPR,0,0);
+ bg.fillStyle='#030504';bg.fillRect(0,0,W,H);
+ const size=clamp(W/95,10,13),lineH=size*1.36;
+ bg.font=`500 ${size}px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace`;
+ bg.textAlign='left';bg.textBaseline='middle';
+ const rows=Math.ceil(H/lineH)+1;
+ for(let row=0;row<rows;row++){
+   const y=row*lineH+3,seed=Math.floor(rand(row,20)*codeLines.length);
+   const s=(codeLines[seed]+'   '+codeLines[(seed+3)%codeLines.length]+'   '+codeLines[(seed+5)%codeLines.length]);
+   const shift=-rand(row,18)*size*22;
+   const zone=Math.abs(y-H*.50)/H;
+   bg.globalAlpha=zone<.30?.22:.36;
+   bg.fillStyle=row%6===0?'#8da7a2':row%4===0?'#b26a48':'#8a7770';
+   bg.fillText(s,shift,y);
+   if(row%5===0){
+     bg.globalAlpha=.11;bg.fillStyle='#e5ae82';bg.fillText(s,shift+size*.18,y+1);
+   }
+ }
+ bg.globalAlpha=1;
+ // A dark eye socket keeps the code visible at the edges but gives the iris depth.
+ const socket=bg.createRadialGradient(W*.5,H*.50,Math.min(W,H)*.10,W*.5,H*.50,Math.max(W*.70,H*.55));
+ socket.addColorStop(0,'rgba(0,0,0,.38)');socket.addColorStop(.48,'rgba(0,0,0,.15)');socket.addColorStop(1,'rgba(0,0,0,.70)');
+ bg.fillStyle=socket;bg.fillRect(0,0,W,H);
+}
 function setup(){
  DPR=Math.min(2,window.devicePixelRatio||1);W=innerWidth;H=innerHeight;
  canvas.width=Math.round(W*DPR);canvas.height=Math.round(H*DPR);ctx.setTransform(DPR,0,0,DPR,0,0);
- // Eye reference art fits the viewport; on portrait phones it remains centered with breathing room.
+ buildCodeBackground();
+ // Fill the frame as in the reference; cropping at the corners is intentional.
  const aspect=REF_W/REF_H;
- drawW=Math.min(W*.974,(H*.83)*aspect);
+ drawW=Math.max(W*1.30,Math.min(H*.92*aspect,W*2.2));
  drawH=drawW/aspect;
  offsetX=(W-drawW)/2;offsetY=(H-drawH)/2;
- COLS= Math.min(202,Math.max(98,Math.round(drawW/6.4)));
+ COLS= Math.min(166,Math.max(105,Math.round(drawW/8.7)));
  ROWS= Math.round(COLS*(REF_H/REF_W)*.94);
  cellW=drawW/COLS;cellH=drawH/ROWS;
  fontSize=Math.min(cellH*1.17,cellW*1.6);
@@ -162,8 +201,9 @@ function setup(){
  for(let i=0;i<Math.max(36,Math.round(W*H/16000));i++){
    stars.push({x:rand(i,1)*W,y:rand(i,2)*H,r:.3+rand(i,3)*1.0,a:.15+rand(i,4)*.45,phase:rand(i,5)*6.28});
  }
+ lastRender=0;
 }
-function glyph(c,r,luma,alpha){
+function glyph(c,r,luma){
  const mixKey=rand(c+18,r+41);
  const bright='@#MW80QBX%';
  const medium='0A8B37ΣπψΩ<>/%&$#';
@@ -176,32 +216,37 @@ function sample(sx,sy){
  if(x<0||y<0||x>=REF_W||y>=REF_H)return null;
  const idx=(y*REF_W+x)*4;return [pixel[idx],pixel[idx+1],pixel[idx+2],pixel[idx+3]];
 }
-function rectRounded(x,y,w,h){ctx.fillRect(x,y,w,h)}
 function drawBackground(t,zoom){
- ctx.fillStyle='#020207';ctx.fillRect(0,0,W,H);
- // Just a restrained set of stars; the eye remains the only subject.
+ ctx.drawImage(codeCanvas,0,0,W,H);
+ // Fine dust over the terminal texture.
  for(const s of stars){
    let a=s.a*(.62+.38*Math.sin(t*.75+s.phase));
    if(zoom>3)a*=clamp((7-zoom)/4);
-   ctx.globalAlpha=Math.max(0,a);ctx.fillStyle='#f8d7e3';
+   ctx.globalAlpha=Math.max(0,a*.35);ctx.fillStyle='#e8c4a1';
    ctx.fillRect(s.x,s.y,s.r,s.r);
  }
  ctx.globalAlpha=1;
  // center soft halo which never becomes a smooth eye illustration
  let hg=ctx.createRadialGradient(W*.5,H*.49,15,W*.5,H*.49,Math.max(drawW*.67,80));
- hg.addColorStop(0,`rgba(103,28,50,${.16 * (1-smooth(3,7,zoom))})`);hg.addColorStop(1,'rgba(103,28,50,0)');
+ hg.addColorStop(0,`rgba(104,46,20,${.12 * (1-smooth(3,7,zoom))})`);hg.addColorStop(1,'rgba(104,46,20,0)');
  ctx.fillStyle=hg;ctx.fillRect(0,0,W,H);
 }
-const BASE_CHARS='0A8XΣπΩ{}\/<>#%&$';
 function drawEyeASCII(t){
- // timeline: full eye 0-3.5s; 3.5-7.7s ease into the dark pupil
- const p=smooth(3.1,6.9,t);const zoom=mix(1.0,9.6,ease(p));
+ // Hold the full eye long enough to study it, then travel through the pupil.
+ const p=smooth(5.5,10.2,t);const zoom=mix(1.0,9.6,ease(p));
  drawBackground(t,zoom);
- const reveal=smooth(.05,1.8,t),eyeFading=1-smooth(6.45,7.65,t);
- let amplitude=.48+.52*reveal;
+ // The source pupil is nearly black; keep the terminal text behind it in shadow.
+ const pupilX=offsetX+(CX+(697-CX)*zoom)/REF_W*drawW;
+ const pupilY=offsetY+(CY+(436-CY)*zoom)/REF_H*drawH;
+ const pupilR=108*zoom*drawW/REF_W;
+ const pupilShade=ctx.createRadialGradient(pupilX,pupilY,pupilR*.25,pupilX,pupilY,pupilR*1.45);
+ pupilShade.addColorStop(0,'rgba(0,0,0,.98)');
+ pupilShade.addColorStop(.72,'rgba(0,0,0,.96)');
+ pupilShade.addColorStop(1,'rgba(0,0,0,0)');
+ ctx.fillStyle=pupilShade;ctx.fillRect(0,0,W,H);
+ const eyeFading=1-smooth(9.7,11.0,t);
  const cellL=cellW,cellT=cellH;
  ctx.textAlign='center';ctx.textBaseline='middle';ctx.font=`600 ${fontSize}px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace`;
- let visible=0;
  for(let r=0;r<ROWS;r++){
    const y=offsetY+(r+.5)*cellT;
    for(let c=0;c<COLS;c++){
@@ -216,23 +261,22 @@ function drawEyeASCII(t){
      const luma=(.2126*rr+.7152*gg+.0722*bb)/255;
      const rnd=rand(c,r,7);
      // character-column reveal; after 1.8s full stable eye
-     const revealLine=smooth(0,1.8,t+((c-COLS*.5)/COLS)*.18 + .2*(rnd-.5));
-     const factor=alpha*(.74 +.26*luma)*revealLine*eyeFading;
-     if(factor<.08 || rand(c,r,9)>(.20+.81*factor))continue;
+     const revealLine=smooth(0,2.0,t+((c-COLS*.5)/COLS)*.18 + .2*(rnd-.5));
+     const factor=alpha*(.78 +.22*luma)*revealLine*eyeFading;
+     if(factor<.07 || rand(c,r,9)>(.08+.94*factor))continue;
      const colorR=Math.round(mix(rr,Math.min(255,rr+29),luma*.1));
      const colorG=Math.round(gg);const colorB=Math.round(bb);
      ctx.globalAlpha=clamp(factor*.95,0,1);
      ctx.fillStyle=`rgb(${colorR},${colorG},${colorB})`;
      // only brighter bits glow, keeping the glyph shapes sharp
-     if(luma>.55 && rand(c,r,4)>.84){ctx.shadowColor=`rgba(${rr},${gg},${bb},.48)`;ctx.shadowBlur=5}else{ctx.shadowBlur=0}
-     ctx.fillText(glyph(c,r,luma,alpha),x,y);
-     visible++;
+     if(luma>.55 && rand(c,r,4)>.84){ctx.shadowColor=`rgba(${rr},${gg},${bb},.40)`;ctx.shadowBlur=4}else{ctx.shadowBlur=0}
+     ctx.fillText(glyph(c,r,luma),x,y);
    }
  }
  ctx.shadowBlur=0;ctx.globalAlpha=1;
  // tiny warm iris inner rim persists briefly as the pupil fills screen
- if(t>5.8&&t<7.55){
-   const portal=smooth(5.8,7.0,t)*(1-smooth(7.0,7.55,t));
+ if(t>8.6&&t<11.1){
+   const portal=smooth(8.6,10.2,t)*(1-smooth(10.2,11.1,t));
    const gr=ctx.createRadialGradient(W/2,H/2,2,W/2,H/2,Math.min(W,H)*.4);
    gr.addColorStop(0,'rgba(0,0,0,0)');gr.addColorStop(.85,`rgba(80,18,39,${portal*.06})`);gr.addColorStop(1,'rgba(0,0,0,0)');
    ctx.fillStyle=gr;ctx.fillRect(0,0,W,H);
@@ -240,7 +284,7 @@ function drawEyeASCII(t){
 }
 function heartVal(x,y){let a=x*x+y*y-1;return a*a*a-x*x*y*y*y}
 function drawHeart(t){
- let appearance=smooth(4.95,8.45,t);
+ let appearance=smooth(8.4,11.8,t);
  if(appearance<.002)return;
  const pulse=1+.025*Math.sin((t-8.0)*3.1)*smooth(8.0,9.3,t);
  const size=Math.min(drawW*.245,drawH*.48,268)*(.08+.92*ease(appearance))*pulse;
@@ -296,28 +340,37 @@ function drawHeart(t){
    ctx.shadowBlur=0;
  }
 }
+function updateTimelineUI(){
+ if(elapsed<5.5)status.textContent='01 / THE EYE';
+ else if(elapsed<10.2)status.textContent='02 / INTO THE PUPIL';
+ else status.textContent='03 / THE HEART';
+ clock.textContent=`00:${String(Math.min(99,Math.floor(elapsed))).padStart(2,'0')}`;
+}
 function frame(now){
  const dt=Math.min(.05,(now-last)/1000);last=now;if(!paused)elapsed+=dt;
  // limit expensive glyph painting to ~30 FPS while keeping timeline continuous
- if(now-lastRender>30){
+ if(now-lastRender>30 && (!paused || lastRender===0)){
    lastRender=now;
    drawEyeASCII(elapsed);
    drawHeart(elapsed);
-   if(elapsed<3.15){status.textContent='01 / THE EYE'}
-   else if(elapsed<7.1){status.textContent='02 / INTO THE PUPIL'}
-   else {status.textContent='03 / THE HEART'}
-   clock.textContent=`00:${String(Math.min(99,Math.floor(elapsed))).padStart(2,'0')}`;
+   updateTimelineUI();
  }
  requestAnimationFrame(frame);
 }
-function replay(){elapsed=0;paused=false;btn.textContent='Ⅱ   პაუზა';last=performance.now();lastRender=0}
-btn.addEventListener('click',()=>{paused=!paused;btn.textContent=paused?'▶   გაგრძელება':'Ⅱ   პაუზა'});
+function syncPauseButton(){btn.textContent=paused?'▶   გაგრძელება':'Ⅱ   პაუზა';btn.setAttribute('aria-label',paused?'გაგრძელება':'შეჩერება')}
+function replay(){elapsed=0;paused=false;syncPauseButton();last=performance.now();lastRender=0}
+btn.addEventListener('click',()=>{paused=!paused;syncPauseButton()});
 document.querySelector('#replay').addEventListener('click',replay);
 canvas.addEventListener('click',replay);
+window.addEventListener('keydown',e=>{
+ if(e.target instanceof HTMLButtonElement)return;
+ if(e.code==='Space'){e.preventDefault();paused=!paused;syncPauseButton()}
+ if(e.key.toLowerCase()==='r')replay();
+});
 window.addEventListener('resize',setup);
-buildEye();setup();requestAnimationFrame(frame);
+buildEye();setup();syncPauseButton();requestAnimationFrame(frame);
 // For deterministic inspection, without affecting ordinary viewers.
-window.__previewTime=(t)=>{paused=true;elapsed=t;btn.textContent='▶   გაგრძელება';drawEyeASCII(elapsed);drawHeart(elapsed)};
+window.__previewTime=(t)=>{paused=true;elapsed=t;syncPauseButton();drawEyeASCII(elapsed);drawHeart(elapsed);updateTimelineUI()};
 })();
 </script>
 </body>
