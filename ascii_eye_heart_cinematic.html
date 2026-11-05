@@ -1,10 +1,16 @@
 <!DOCTYPE html>
-<html lang="ka">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="A small story told in code.">
+<meta name="theme-color" content="#030504">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Between Blinks">
+<meta property="og:description" content="A small story told in code.">
+<meta property="og:image" content="https://raw.githubusercontent.com/sabazaqaidze31-glitch/sagas-rose/main/preview.jpg">
 <link rel="icon" href="data:,">
-<title>WITHIN THE EYE — ASCII HEART</title>
+<title>Between Blinks</title>
 <style>
 :root{color-scheme:dark;--rose:#e7a887;--muted:#777986}
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;background:#020207;overflow:hidden}
@@ -25,10 +31,10 @@ body{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#e6b
 </head>
 <body>
 <main id="stage">
-  <canvas id="scene" role="img" aria-label="ASCII სიმბოლოებით დახატული თვალი, რომელიც ნელა უახლოვდება გუგას, სადაც მბრწყინავი გული ჩნდება"></canvas>
+  <canvas id="scene" role="img" aria-label="An eye made of code opens, looks right and left, blinks, and moves into its pupil. A heart gives way to the message: You asked me where I disappeared to… I’m here."></canvas>
   <div id="overlay"></div>
-  <div id="top"><div><strong>✦</strong> &nbsp; E Y E <span style="opacity:.5"> / </span> H E A R T</div><div id="label">ASCII ART · <span id="clock">00:00</span></div></div>
-  <div id="bottom"><span id="status">01 / THE EYE</span><div class="controls"><button id="toggle" aria-label="შეჩერება">Ⅱ &nbsp; პაუზა</button><button id="replay">↻ &nbsp; თავიდან</button></div></div>
+  <div id="top"><div><strong>✦</strong> &nbsp; B E T W E E N &nbsp; B L I N K S</div><div id="label"> <span id="clock">00:00</span></div></div>
+  <div id="bottom"><span id="status">01 / AWAKENING</span><div class="controls"><button id="toggle" aria-label="Pause animation">Ⅱ &nbsp; Pause</button><button id="replay" aria-label="Replay animation">↻ &nbsp; Replay</button></div></div>
 </main>
 <script>
 (() => {
@@ -47,9 +53,9 @@ const rand=(x,y,k=0)=>fract(Math.sin(x*127.1+y*311.7+k*74.7)*43758.5453);
 const o=document.createElement('canvas');o.width=REF_W;o.height=REF_H;
 const g=o.getContext('2d',{willReadFrequently:true});
 const codeCanvas=document.createElement('canvas'),bg=codeCanvas.getContext('2d');
-let pixel=null,W=0,H=0,DPR=1,COLS=150,ROWS=83,fontSize=10,cellW=8,cellH=9,offsetX=0,offsetY=0,drawW=0,drawH=0;
+let pixel=null,basePixel=null,W=0,H=0,DPR=1,COLS=150,ROWS=83,fontSize=10,cellW=8,cellH=9,offsetX=0,offsetY=0,drawW=0,drawH=0;
 const reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-let stars=[],last=performance.now(),elapsed=reducedMotion?3:0,paused=reducedMotion,lastRender=0;
+let stars=[],last=performance.now(),elapsed=reducedMotion?1.4:0,paused=reducedMotion,lastRender=0;
 
 // Curves use the same anatomy as the reference: almond eye, sclera, amber iris,
 // shadow-black pupil, warm upper lid and the delicate under-eye rim.
@@ -67,7 +73,7 @@ function lowerCurve(){g.beginPath();g.moveTo(67,416);g.bezierCurveTo(175,540,381
 function strokeLine(lineWidth,color,blur=0,shadow='transparent'){
   g.lineWidth=lineWidth;g.lineCap='round';g.lineJoin='round';g.strokeStyle=color;g.shadowBlur=blur;g.shadowColor=shadow;g.stroke();g.shadowBlur=0;
 }
-function buildEye(){
+function buildEye(withIris){
  g.clearRect(0,0,REF_W,REF_H);
  // muted upper eyelid/skin, all implemented only as source shading for later glyph sampling
  g.save();g.beginPath();g.moveTo(40,409);g.bezierCurveTo(282,185,995,156,1354,415);g.bezierCurveTo(1200,305,1001,265,681,251);g.bezierCurveTo(384,253,213,331,40,409);g.closePath();
@@ -93,6 +99,8 @@ function buildEye(){
    g.quadraticCurveTo(x+(left?40:-40),y-12,x+(left?75:-75),y+6);
    g.lineWidth=.7+rand(i,8)*.8;g.strokeStyle='rgba(155,72,88,.08)';g.stroke();
  }
+ // Iris and sclera are sampled separately, so the gaze can move without moving the lids.
+ if(withIris){
  // iris: dark outer limbal ring and deep amber radial coloration
  const IX=697,IY=436,IR=220;
  let rim=g.createRadialGradient(IX,IY,60,IX,IY,IR+14);
@@ -128,6 +136,7 @@ function buildEye(){
  g.fillStyle=reflection;g.beginPath();g.ellipse(649,356,37,18,-.5,0,2*PI);g.fill();
  g.fillStyle='rgba(255,238,210,.74)';g.beginPath();g.ellipse(743,498,15,8,.3,0,2*PI);g.fill();
  g.restore(); // iris clip
+ }
  g.restore(); // sclera eye clip
  // layered eyelid contour with soft glow, all as pixel map
  upperCurve();strokeLine(27,'rgba(28,13,10,.82)',12,'rgba(223,113,63,.25)');
@@ -147,7 +156,8 @@ function buildEye(){
    g.beginPath();g.moveTo(x,y);g.quadraticCurveTo(x-22,y-17,x-31,y-22);
    g.strokeStyle='rgba(116,50,73,.3)';g.lineWidth=2;g.stroke();
  }
- pixel=g.getImageData(0,0,REF_W,REF_H).data;
+ const data=g.getImageData(0,0,REF_W,REF_H).data;
+ if(withIris)pixel=data;else basePixel=data;
 }
 const codeLines=[
  'def render(upper, dx, dy):    x = np.array([0.52, 0.48, 0.29], np.float32)     # luminance',
@@ -211,10 +221,53 @@ function glyph(c,r,luma){
  let set=(luma>.67)?bright:(luma>.34)?medium:dim;
  return set[Math.floor(mixKey*set.length)];
 }
-function sample(sx,sy){
+function sampleFrom(data,sx,sy){
  let x=sx|0,y=sy|0;
  if(x<0||y<0||x>=REF_W||y>=REF_H)return null;
- const idx=(y*REF_W+x)*4;return [pixel[idx],pixel[idx+1],pixel[idx+2],pixel[idx+3]];
+ const idx=(y*REF_W+x)*4;return [data[idx],data[idx+1],data[idx+2],data[idx+3]];
+}
+function apertureHalfHeight(sx){
+ const u=(sx-697)/632;
+ return 200*Math.sqrt(Math.max(0,1-u*u));
+}
+function sample(sx,sy,gaze){
+ if(Math.abs(gaze)<.01)return sampleFrom(pixel,sx,sy);
+ const base=sampleFrom(basePixel,sx,sy);
+ if(!base)return null;
+ const dx=sx-(697+gaze),dy=sy-436;
+ if(dx*dx+dy*dy>227*227 || Math.abs(sy-440)>apertureHalfHeight(sx))return base;
+ return sampleFrom(pixel,sx-gaze,sy)||base;
+}
+function gazeAt(t){
+ if(t<1.5)return 0;
+ if(t<2.4)return 125*ease((t-1.5)/.9);
+ if(t<3.0)return 125;
+ if(t<4.0)return mix(125,-125,ease((t-3.0)/1.0));
+ if(t<4.75)return -125;
+ if(t<5.4)return mix(-125,0,ease((t-4.75)/.65));
+ return 0;
+}
+function opennessAt(t){
+ const opening=smooth(.08,1.3,t);
+ const blink=smooth(5.45,5.72,t)*(1-smooth(5.72,6.08,t));
+ return opening*(1-.98*blink);
+}
+function drawClosedLid(openness,zoom){
+ if(openness>.94)return;
+ ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';
+ ctx.font=`600 ${fontSize}px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace`;
+ ctx.shadowBlur=5;ctx.shadowColor='rgba(214,114,67,.55)';
+ for(let c=0;c<COLS;c++){
+   const sx=(c+.5)/COLS*REF_W,u=(sx-697)/632;
+   if(Math.abs(u)>1)continue;
+   const x=offsetX+(c+.5)*cellW;
+   const sy=418+13*(1-u*u);
+   const y=offsetY+(CY+(sy-CY)*zoom)/REF_H*drawH;
+   ctx.globalAlpha=(1-openness)*(.8-.2*Math.abs(u));
+   ctx.fillStyle=c%5===0?'#e5a579':'#a76745';
+   ctx.fillText(c%8===0?'=':'-',x,y);
+ }
+ ctx.restore();
 }
 function drawBackground(t,zoom){
  ctx.drawImage(codeCanvas,0,0,W,H);
@@ -232,19 +285,20 @@ function drawBackground(t,zoom){
  ctx.fillStyle=hg;ctx.fillRect(0,0,W,H);
 }
 function drawEyeASCII(t){
- // Hold the full eye long enough to study it, then travel through the pupil.
- const p=smooth(5.5,10.2,t);const zoom=mix(1.0,9.6,ease(p));
+ // Open, look right and left, blink, then travel through the pupil.
+ const gaze=gazeAt(t),openness=opennessAt(t);
+ const p=smooth(6.35,10.9,t);const zoom=mix(1.0,9.6,ease(p));
  drawBackground(t,zoom);
  // The source pupil is nearly black; keep the terminal text behind it in shadow.
- const pupilX=offsetX+(CX+(697-CX)*zoom)/REF_W*drawW;
+ const pupilX=offsetX+(CX+(697+gaze-CX)*zoom)/REF_W*drawW;
  const pupilY=offsetY+(CY+(436-CY)*zoom)/REF_H*drawH;
  const pupilR=108*zoom*drawW/REF_W;
  const pupilShade=ctx.createRadialGradient(pupilX,pupilY,pupilR*.25,pupilX,pupilY,pupilR*1.45);
  pupilShade.addColorStop(0,'rgba(0,0,0,.98)');
  pupilShade.addColorStop(.72,'rgba(0,0,0,.96)');
  pupilShade.addColorStop(1,'rgba(0,0,0,0)');
- ctx.fillStyle=pupilShade;ctx.fillRect(0,0,W,H);
- const eyeFading=1-smooth(9.7,11.0,t);
+ ctx.globalAlpha=openness;ctx.fillStyle=pupilShade;ctx.fillRect(0,0,W,H);ctx.globalAlpha=1;
+ const eyeFading=1-smooth(10.5,11.75,t);
  const cellL=cellW,cellT=cellH;
  ctx.textAlign='center';ctx.textBaseline='middle';ctx.font=`600 ${fontSize}px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace`;
  for(let r=0;r<ROWS;r++){
@@ -254,15 +308,19 @@ function drawEyeASCII(t){
      const x=offsetX+(c+.5)*cellL;
      let sx=CX+(((c+.5)/COLS)*REF_W-CX)/zoom;
      let sy=CY+(((r+.5)/ROWS)*REF_H-CY)/zoom;
-     const sample0=sample(sx,sy);
+     let openAlpha=1;
+     if(openness<.995){
+       openAlpha=smooth(-7,7,apertureHalfHeight(sx)*openness-2-Math.abs(sy-440));
+       if(openAlpha<.01)continue;
+     }
+     const sample0=sample(sx,sy,gaze);
      if(!sample0 || sample0[3]<30)continue;
      const [rr,gg,bb,aa]=sample0;
      const alpha=aa/255;
      const luma=(.2126*rr+.7152*gg+.0722*bb)/255;
      const rnd=rand(c,r,7);
-     // character-column reveal; after 1.8s full stable eye
-     const revealLine=smooth(0,2.0,t+((c-COLS*.5)/COLS)*.18 + .2*(rnd-.5));
-     const factor=alpha*(.78 +.22*luma)*revealLine*eyeFading;
+     const revealLine=smooth(.02,1.05,t+((c-COLS*.5)/COLS)*.12 + .1*(rnd-.5));
+     const factor=alpha*(.78 +.22*luma)*revealLine*eyeFading*openAlpha;
      if(factor<.07 || rand(c,r,9)>(.08+.94*factor))continue;
      const colorR=Math.round(mix(rr,Math.min(255,rr+29),luma*.1));
      const colorG=Math.round(gg);const colorB=Math.round(bb);
@@ -274,9 +332,10 @@ function drawEyeASCII(t){
    }
  }
  ctx.shadowBlur=0;ctx.globalAlpha=1;
+ drawClosedLid(openness,zoom);
  // tiny warm iris inner rim persists briefly as the pupil fills screen
- if(t>8.6&&t<11.1){
-   const portal=smooth(8.6,10.2,t)*(1-smooth(10.2,11.1,t));
+ if(t>9.1&&t<11.8){
+   const portal=smooth(9.1,10.9,t)*(1-smooth(10.9,11.8,t));
    const gr=ctx.createRadialGradient(W/2,H/2,2,W/2,H/2,Math.min(W,H)*.4);
    gr.addColorStop(0,'rgba(0,0,0,0)');gr.addColorStop(.85,`rgba(80,18,39,${portal*.06})`);gr.addColorStop(1,'rgba(0,0,0,0)');
    ctx.fillStyle=gr;ctx.fillRect(0,0,W,H);
@@ -284,16 +343,18 @@ function drawEyeASCII(t){
 }
 function heartVal(x,y){let a=x*x+y*y-1;return a*a*a-x*x*y*y*y}
 function drawHeart(t){
- let appearance=smooth(8.4,11.8,t);
- if(appearance<.002)return;
- const pulse=1+.025*Math.sin((t-8.0)*3.1)*smooth(8.0,9.3,t);
+ let appearance=smooth(9.7,12.4,t);
+ const dissolve=smooth(14.3,16.4,t);
+ if(appearance<.002||dissolve>=1)return;
+ const remaining=1-dissolve;
+ const pulse=1+.025*Math.sin((t-11.8)*3.1)*smooth(11.8,12.6,t);
  const size=Math.min(drawW*.245,drawH*.48,268)*(.08+.92*ease(appearance))*pulse;
  // offsets chosen so mathematical heart's visual centroid is actually centered
  const hx=W/2,hy=H/2+Math.min(38,drawH*.025);
  // still ASCII: glow below belongs to each glyph, not to a vector heart layer
  let glow=ctx.createRadialGradient(hx,hy,15,hx,hy,size*1.50);
- glow.addColorStop(0,`rgba(240,50,92,${appearance*.13})`);
- glow.addColorStop(.4,`rgba(195,20,65,${appearance*.08})`);
+ glow.addColorStop(0,`rgba(240,50,92,${appearance*remaining*.13})`);
+ glow.addColorStop(.4,`rgba(195,20,65,${appearance*remaining*.08})`);
  glow.addColorStop(1,'rgba(150,0,40,0)');
  ctx.fillStyle=glow;ctx.fillRect(0,0,W,H);
  ctx.textAlign='center';ctx.textBaseline='middle';ctx.font=`700 ${fontSize*1.05}px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace`;
@@ -313,7 +374,7 @@ function drawHeart(t){
      const stripe=Math.sin((xx+yy)*16)*.04;
      const lum=clamp(.42 +.30*(yy+.9)/2.2 + .35*highlight+.14*soft+stripe);
      const R=255, G=Math.round(mix(30,191,highlight*.77 +.19*soft)), B=Math.round(mix(68,180,highlight*.64+.13*soft));
-     const alp=clamp((.65+.34*edge)*appearance*(.82+ .18*rand(c,r,27)));
+     const alp=clamp((.65+.34*edge)*appearance*(.82+ .18*rand(c,r,27)))*remaining;
      if(rand(c,r,19)>.27+.73*alp)continue;
      ctx.fillStyle=`rgb(${R},${G},${B})`;ctx.globalAlpha=alp;
      if(highlight>.32|| (edge<.65&&rand(c,r,1)>.6)){
@@ -321,17 +382,20 @@ function drawHeart(t){
      }else ctx.shadowBlur=0;
      const chars= lum>.67?'@#MW880$':lum>.5?'8BXΣπΩ%&0': '0A4/<>+*=';
      const ch=chars[(rand(c,r,41)*chars.length)|0];
-     ctx.fillText(ch,x,y);
+     const drift=ease(dissolve);
+     const targetX=W/2+(rand(c,r,56)-.5)*Math.min(W*.54,540);
+     const targetY=H/2-38+(rand(c,r,57)-.5)*42;
+     ctx.fillText(ch,mix(x,targetX,drift),mix(y,targetY,drift));
    }
  }
  ctx.globalAlpha=1;ctx.shadowBlur=0;
  // a few glints, also composed of terminal characters
- const glint=smooth(8.2,9.3,t);
+ const glint=smooth(12.0,12.8,t);
  if(glint>.02){
    const glints=[[-.42,.44,'+'],[.34,.34,'×'],[-.57,-.1,'·'],[.54,-.36,'*']];
    for(let i=0;i<glints.length;i++){
      const [gx,gy,s]=glints[i];
-     const twinkle=(.52+.48*Math.sin(3.9*t+i*1.7))*glint;
+     const twinkle=(.52+.48*Math.sin(3.9*t+i*1.7))*glint*remaining;
      ctx.fillStyle=`rgba(255,219,228,${twinkle*.86})`;
      ctx.font=`700 ${fontSize*1.5}px monospace`;
      ctx.shadowBlur=9;ctx.shadowColor='rgba(255,120,170,.75)';
@@ -340,26 +404,86 @@ function drawHeart(t){
    ctx.shadowBlur=0;
  }
 }
+function drawTypedLine(message,y,start,step,size,color,t,weight,family='ui-sans-serif,system-ui,-apple-system,sans-serif'){
+ const letters=Array.from(message);
+ ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';
+ do{ctx.font=`${weight} ${size}px ${family}`;if(ctx.measureText(message).width<=W-42)break;size--}while(size>15);
+ const widths=letters.map(letter=>ctx.measureText(letter).width);
+ let x=(W-widths.reduce((sum,width)=>sum+width,0))/2;
+ for(let i=0;i<letters.length;i++){
+   const letter=letters[i],width=widths[i],entry=start+i*step;
+   const reveal=smooth(entry,entry+.32,t);
+   if(reveal>0&&letter.trim()){
+     const forming=t<entry+.2;
+     const code='01<>/{}*+';
+     const shown=forming?code[(rand(i,Math.floor(t*22),13)*code.length)|0]:letter;
+     ctx.globalAlpha=reveal*(forming?.7:1);
+     ctx.fillStyle=color;ctx.shadowColor='rgba(233,143,91,.38)';ctx.shadowBlur=forming?7:12;
+     ctx.fillText(shown,x+width/2,y+(1-reveal)*14);
+   }
+   x+=width;
+ }
+ ctx.restore();
+}
+function drawFinalMessage(t){
+ if(t<15.5)return;
+ const scale=clamp(W/1000,.65,1);
+ const titleSize=Math.max(44,58*scale),quietSize=Math.max(17,24*scale);
+ const center=H*.5;
+ const arrival=smooth(18.15,19.0,t)*(1-smooth(20.0,21.3,t));
+ if(arrival>0){
+   const aura=ctx.createRadialGradient(W/2,center+28,8,W/2,center+28,Math.min(W*.45,340));
+   aura.addColorStop(0,`rgba(225,113,79,${arrival*.18})`);
+   aura.addColorStop(1,'rgba(225,113,79,0)');
+   ctx.fillStyle=aura;ctx.fillRect(0,0,W,H);
+ }
+ if(W<560){
+   drawTypedLine('You asked me where',center-63,15.7,.06,quietSize,'#c5a994',t,500);
+   drawTypedLine('I disappeared to…',center-35,16.6,.06,quietSize,'#c5a994',t,500);
+   drawTypedLine('I’m here.',center+40,18.35,.11,titleSize,'#f6e5d1',t,'italic 500','Georgia,"Times New Roman",serif');
+ }else{
+   drawTypedLine('You asked me where I disappeared to…',center-38,15.7,.052,quietSize,'#c5a994',t,500);
+   drawTypedLine('I’m here.',center+35,18.35,.11,titleSize,'#f6e5d1',t,'italic 500','Georgia,"Times New Roman",serif');
+ }
+ const line=smooth(19.6,20.2,t);
+ ctx.save();ctx.globalAlpha=line*.65;ctx.fillStyle='#bf7957';
+ ctx.fillRect(W/2-22,center+(W<560?82:88),44*line,1);
+ ctx.restore();
+}
 function updateTimelineUI(){
- if(elapsed<5.5)status.textContent='01 / THE EYE';
- else if(elapsed<10.2)status.textContent='02 / INTO THE PUPIL';
- else status.textContent='03 / THE HEART';
+ if(elapsed<1.3)status.textContent='01 / AWAKENING';
+ else if(elapsed<3.0)status.textContent='02 / SEARCHING';
+ else if(elapsed<5.4)status.textContent='03 / STILL SEARCHING';
+ else if(elapsed<6.35)status.textContent='04 / A BLINK';
+ else if(elapsed<10.9)status.textContent='05 / CLOSER';
+ else if(elapsed<16.4)status.textContent='06 / A HEART';
+ else status.textContent='07 / FOR YOU';
  clock.textContent=`00:${String(Math.min(99,Math.floor(elapsed))).padStart(2,'0')}`;
 }
 function frame(now){
- const dt=Math.min(.05,(now-last)/1000);last=now;if(!paused)elapsed+=dt;
+ const dt=Math.min(.05,(now-last)/1000);last=now;
+ if(!paused){
+   elapsed=Math.min(21.5,elapsed+dt);
+   if(elapsed>=21.5){paused=true;lastRender=0}
+ }
  // limit expensive glyph painting to ~30 FPS while keeping timeline continuous
  if(now-lastRender>30 && (!paused || lastRender===0)){
    lastRender=now;
    drawEyeASCII(elapsed);
    drawHeart(elapsed);
+   drawFinalMessage(elapsed);
    updateTimelineUI();
+   if(elapsed>=21.5)syncPauseButton();
  }
  requestAnimationFrame(frame);
 }
-function syncPauseButton(){btn.textContent=paused?'▶   გაგრძელება':'Ⅱ   პაუზა';btn.setAttribute('aria-label',paused?'გაგრძელება':'შეჩერება')}
-function replay(){elapsed=0;paused=false;syncPauseButton();last=performance.now();lastRender=0}
-btn.addEventListener('click',()=>{paused=!paused;syncPauseButton()});
+function syncPauseButton(){
+ const finished=elapsed>=21.5;
+ btn.textContent=finished?'↻   Replay':paused?'▶   Resume':'Ⅱ   Pause';
+ btn.setAttribute('aria-label',finished?'Replay animation':paused?'Resume animation':'Pause animation');
+}
+function replay(){elapsed=0;paused=false;syncPauseButton();updateTimelineUI();last=performance.now();lastRender=0}
+btn.addEventListener('click',()=>{if(elapsed>=21.5)return replay();paused=!paused;syncPauseButton()});
 document.querySelector('#replay').addEventListener('click',replay);
 canvas.addEventListener('click',replay);
 window.addEventListener('keydown',e=>{
@@ -368,9 +492,9 @@ window.addEventListener('keydown',e=>{
  if(e.key.toLowerCase()==='r')replay();
 });
 window.addEventListener('resize',setup);
-buildEye();setup();syncPauseButton();requestAnimationFrame(frame);
+buildEye(false);buildEye(true);setup();syncPauseButton();requestAnimationFrame(frame);
 // For deterministic inspection, without affecting ordinary viewers.
-window.__previewTime=(t)=>{paused=true;elapsed=t;syncPauseButton();drawEyeASCII(elapsed);drawHeart(elapsed);updateTimelineUI()};
+window.__previewTime=(t)=>{paused=true;elapsed=t;syncPauseButton();drawEyeASCII(elapsed);drawHeart(elapsed);drawFinalMessage(elapsed);updateTimelineUI()};
 })();
 </script>
 </body>
