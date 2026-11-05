@@ -25,10 +25,10 @@ body{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#e6b
 </head>
 <body>
 <main id="stage">
-  <canvas id="scene" role="img" aria-label="ASCII სიმბოლოებით დახატული თვალი, რომელიც ნელა უახლოვდება გუგას, სადაც მბრწყინავი გული ჩნდება"></canvas>
+  <canvas id="scene" role="img" aria-label="ASCII სიმბოლოებით დახატული თვალი იხსნება, მარჯვნივ და მარცხნივ იყურება, ხამხამებს და კადრი გუგაში შედის, სადაც მბრწყინავი გული ჩნდება"></canvas>
   <div id="overlay"></div>
   <div id="top"><div><strong>✦</strong> &nbsp; E Y E <span style="opacity:.5"> / </span> H E A R T</div><div id="label">ASCII ART · <span id="clock">00:00</span></div></div>
-  <div id="bottom"><span id="status">01 / THE EYE</span><div class="controls"><button id="toggle" aria-label="შეჩერება">Ⅱ &nbsp; პაუზა</button><button id="replay">↻ &nbsp; თავიდან</button></div></div>
+  <div id="bottom"><span id="status">01 / OPENING</span><div class="controls"><button id="toggle" aria-label="შეჩერება">Ⅱ &nbsp; პაუზა</button><button id="replay">↻ &nbsp; თავიდან</button></div></div>
 </main>
 <script>
 (() => {
@@ -47,9 +47,9 @@ const rand=(x,y,k=0)=>fract(Math.sin(x*127.1+y*311.7+k*74.7)*43758.5453);
 const o=document.createElement('canvas');o.width=REF_W;o.height=REF_H;
 const g=o.getContext('2d',{willReadFrequently:true});
 const codeCanvas=document.createElement('canvas'),bg=codeCanvas.getContext('2d');
-let pixel=null,W=0,H=0,DPR=1,COLS=150,ROWS=83,fontSize=10,cellW=8,cellH=9,offsetX=0,offsetY=0,drawW=0,drawH=0;
+let pixel=null,basePixel=null,W=0,H=0,DPR=1,COLS=150,ROWS=83,fontSize=10,cellW=8,cellH=9,offsetX=0,offsetY=0,drawW=0,drawH=0;
 const reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-let stars=[],last=performance.now(),elapsed=reducedMotion?3:0,paused=reducedMotion,lastRender=0;
+let stars=[],last=performance.now(),elapsed=reducedMotion?1.4:0,paused=reducedMotion,lastRender=0;
 
 // Curves use the same anatomy as the reference: almond eye, sclera, amber iris,
 // shadow-black pupil, warm upper lid and the delicate under-eye rim.
@@ -67,7 +67,7 @@ function lowerCurve(){g.beginPath();g.moveTo(67,416);g.bezierCurveTo(175,540,381
 function strokeLine(lineWidth,color,blur=0,shadow='transparent'){
   g.lineWidth=lineWidth;g.lineCap='round';g.lineJoin='round';g.strokeStyle=color;g.shadowBlur=blur;g.shadowColor=shadow;g.stroke();g.shadowBlur=0;
 }
-function buildEye(){
+function buildEye(withIris){
  g.clearRect(0,0,REF_W,REF_H);
  // muted upper eyelid/skin, all implemented only as source shading for later glyph sampling
  g.save();g.beginPath();g.moveTo(40,409);g.bezierCurveTo(282,185,995,156,1354,415);g.bezierCurveTo(1200,305,1001,265,681,251);g.bezierCurveTo(384,253,213,331,40,409);g.closePath();
@@ -93,6 +93,8 @@ function buildEye(){
    g.quadraticCurveTo(x+(left?40:-40),y-12,x+(left?75:-75),y+6);
    g.lineWidth=.7+rand(i,8)*.8;g.strokeStyle='rgba(155,72,88,.08)';g.stroke();
  }
+ // Iris and sclera are sampled separately, so the gaze can move without moving the lids.
+ if(withIris){
  // iris: dark outer limbal ring and deep amber radial coloration
  const IX=697,IY=436,IR=220;
  let rim=g.createRadialGradient(IX,IY,60,IX,IY,IR+14);
@@ -128,6 +130,7 @@ function buildEye(){
  g.fillStyle=reflection;g.beginPath();g.ellipse(649,356,37,18,-.5,0,2*PI);g.fill();
  g.fillStyle='rgba(255,238,210,.74)';g.beginPath();g.ellipse(743,498,15,8,.3,0,2*PI);g.fill();
  g.restore(); // iris clip
+ }
  g.restore(); // sclera eye clip
  // layered eyelid contour with soft glow, all as pixel map
  upperCurve();strokeLine(27,'rgba(28,13,10,.82)',12,'rgba(223,113,63,.25)');
@@ -147,7 +150,8 @@ function buildEye(){
    g.beginPath();g.moveTo(x,y);g.quadraticCurveTo(x-22,y-17,x-31,y-22);
    g.strokeStyle='rgba(116,50,73,.3)';g.lineWidth=2;g.stroke();
  }
- pixel=g.getImageData(0,0,REF_W,REF_H).data;
+ const data=g.getImageData(0,0,REF_W,REF_H).data;
+ if(withIris)pixel=data;else basePixel=data;
 }
 const codeLines=[
  'def render(upper, dx, dy):    x = np.array([0.52, 0.48, 0.29], np.float32)     # luminance',
@@ -211,10 +215,53 @@ function glyph(c,r,luma){
  let set=(luma>.67)?bright:(luma>.34)?medium:dim;
  return set[Math.floor(mixKey*set.length)];
 }
-function sample(sx,sy){
+function sampleFrom(data,sx,sy){
  let x=sx|0,y=sy|0;
  if(x<0||y<0||x>=REF_W||y>=REF_H)return null;
- const idx=(y*REF_W+x)*4;return [pixel[idx],pixel[idx+1],pixel[idx+2],pixel[idx+3]];
+ const idx=(y*REF_W+x)*4;return [data[idx],data[idx+1],data[idx+2],data[idx+3]];
+}
+function apertureHalfHeight(sx){
+ const u=(sx-697)/632;
+ return 200*Math.sqrt(Math.max(0,1-u*u));
+}
+function sample(sx,sy,gaze){
+ if(Math.abs(gaze)<.01)return sampleFrom(pixel,sx,sy);
+ const base=sampleFrom(basePixel,sx,sy);
+ if(!base)return null;
+ const dx=sx-(697+gaze),dy=sy-436;
+ if(dx*dx+dy*dy>227*227 || Math.abs(sy-440)>apertureHalfHeight(sx))return base;
+ return sampleFrom(pixel,sx-gaze,sy)||base;
+}
+function gazeAt(t){
+ if(t<1.5)return 0;
+ if(t<2.4)return 125*ease((t-1.5)/.9);
+ if(t<3.0)return 125;
+ if(t<4.0)return mix(125,-125,ease((t-3.0)/1.0));
+ if(t<4.75)return -125;
+ if(t<5.4)return mix(-125,0,ease((t-4.75)/.65));
+ return 0;
+}
+function opennessAt(t){
+ const opening=smooth(.08,1.3,t);
+ const blink=smooth(5.45,5.72,t)*(1-smooth(5.72,6.08,t));
+ return opening*(1-.98*blink);
+}
+function drawClosedLid(openness,zoom){
+ if(openness>.94)return;
+ ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';
+ ctx.font=`600 ${fontSize}px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace`;
+ ctx.shadowBlur=5;ctx.shadowColor='rgba(214,114,67,.55)';
+ for(let c=0;c<COLS;c++){
+   const sx=(c+.5)/COLS*REF_W,u=(sx-697)/632;
+   if(Math.abs(u)>1)continue;
+   const x=offsetX+(c+.5)*cellW;
+   const sy=418+13*(1-u*u);
+   const y=offsetY+(CY+(sy-CY)*zoom)/REF_H*drawH;
+   ctx.globalAlpha=(1-openness)*(.8-.2*Math.abs(u));
+   ctx.fillStyle=c%5===0?'#e5a579':'#a76745';
+   ctx.fillText(c%8===0?'=':'-',x,y);
+ }
+ ctx.restore();
 }
 function drawBackground(t,zoom){
  ctx.drawImage(codeCanvas,0,0,W,H);
@@ -232,19 +279,20 @@ function drawBackground(t,zoom){
  ctx.fillStyle=hg;ctx.fillRect(0,0,W,H);
 }
 function drawEyeASCII(t){
- // Hold the full eye long enough to study it, then travel through the pupil.
- const p=smooth(5.5,10.2,t);const zoom=mix(1.0,9.6,ease(p));
+ // Open, look right and left, blink, then travel through the pupil.
+ const gaze=gazeAt(t),openness=opennessAt(t);
+ const p=smooth(6.35,10.9,t);const zoom=mix(1.0,9.6,ease(p));
  drawBackground(t,zoom);
  // The source pupil is nearly black; keep the terminal text behind it in shadow.
- const pupilX=offsetX+(CX+(697-CX)*zoom)/REF_W*drawW;
+ const pupilX=offsetX+(CX+(697+gaze-CX)*zoom)/REF_W*drawW;
  const pupilY=offsetY+(CY+(436-CY)*zoom)/REF_H*drawH;
  const pupilR=108*zoom*drawW/REF_W;
  const pupilShade=ctx.createRadialGradient(pupilX,pupilY,pupilR*.25,pupilX,pupilY,pupilR*1.45);
  pupilShade.addColorStop(0,'rgba(0,0,0,.98)');
  pupilShade.addColorStop(.72,'rgba(0,0,0,.96)');
  pupilShade.addColorStop(1,'rgba(0,0,0,0)');
- ctx.fillStyle=pupilShade;ctx.fillRect(0,0,W,H);
- const eyeFading=1-smooth(9.7,11.0,t);
+ ctx.globalAlpha=openness;ctx.fillStyle=pupilShade;ctx.fillRect(0,0,W,H);ctx.globalAlpha=1;
+ const eyeFading=1-smooth(10.5,11.75,t);
  const cellL=cellW,cellT=cellH;
  ctx.textAlign='center';ctx.textBaseline='middle';ctx.font=`600 ${fontSize}px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace`;
  for(let r=0;r<ROWS;r++){
@@ -254,15 +302,19 @@ function drawEyeASCII(t){
      const x=offsetX+(c+.5)*cellL;
      let sx=CX+(((c+.5)/COLS)*REF_W-CX)/zoom;
      let sy=CY+(((r+.5)/ROWS)*REF_H-CY)/zoom;
-     const sample0=sample(sx,sy);
+     let openAlpha=1;
+     if(openness<.995){
+       openAlpha=smooth(-7,7,apertureHalfHeight(sx)*openness-2-Math.abs(sy-440));
+       if(openAlpha<.01)continue;
+     }
+     const sample0=sample(sx,sy,gaze);
      if(!sample0 || sample0[3]<30)continue;
      const [rr,gg,bb,aa]=sample0;
      const alpha=aa/255;
      const luma=(.2126*rr+.7152*gg+.0722*bb)/255;
      const rnd=rand(c,r,7);
-     // character-column reveal; after 1.8s full stable eye
-     const revealLine=smooth(0,2.0,t+((c-COLS*.5)/COLS)*.18 + .2*(rnd-.5));
-     const factor=alpha*(.78 +.22*luma)*revealLine*eyeFading;
+     const revealLine=smooth(.02,1.05,t+((c-COLS*.5)/COLS)*.12 + .1*(rnd-.5));
+     const factor=alpha*(.78 +.22*luma)*revealLine*eyeFading*openAlpha;
      if(factor<.07 || rand(c,r,9)>(.08+.94*factor))continue;
      const colorR=Math.round(mix(rr,Math.min(255,rr+29),luma*.1));
      const colorG=Math.round(gg);const colorB=Math.round(bb);
@@ -274,9 +326,10 @@ function drawEyeASCII(t){
    }
  }
  ctx.shadowBlur=0;ctx.globalAlpha=1;
+ drawClosedLid(openness,zoom);
  // tiny warm iris inner rim persists briefly as the pupil fills screen
- if(t>8.6&&t<11.1){
-   const portal=smooth(8.6,10.2,t)*(1-smooth(10.2,11.1,t));
+ if(t>9.1&&t<11.8){
+   const portal=smooth(9.1,10.9,t)*(1-smooth(10.9,11.8,t));
    const gr=ctx.createRadialGradient(W/2,H/2,2,W/2,H/2,Math.min(W,H)*.4);
    gr.addColorStop(0,'rgba(0,0,0,0)');gr.addColorStop(.85,`rgba(80,18,39,${portal*.06})`);gr.addColorStop(1,'rgba(0,0,0,0)');
    ctx.fillStyle=gr;ctx.fillRect(0,0,W,H);
@@ -284,9 +337,9 @@ function drawEyeASCII(t){
 }
 function heartVal(x,y){let a=x*x+y*y-1;return a*a*a-x*x*y*y*y}
 function drawHeart(t){
- let appearance=smooth(8.4,11.8,t);
+ let appearance=smooth(9.7,12.4,t);
  if(appearance<.002)return;
- const pulse=1+.025*Math.sin((t-8.0)*3.1)*smooth(8.0,9.3,t);
+ const pulse=1+.025*Math.sin((t-11.8)*3.1)*smooth(11.8,12.6,t);
  const size=Math.min(drawW*.245,drawH*.48,268)*(.08+.92*ease(appearance))*pulse;
  // offsets chosen so mathematical heart's visual centroid is actually centered
  const hx=W/2,hy=H/2+Math.min(38,drawH*.025);
@@ -326,7 +379,7 @@ function drawHeart(t){
  }
  ctx.globalAlpha=1;ctx.shadowBlur=0;
  // a few glints, also composed of terminal characters
- const glint=smooth(8.2,9.3,t);
+ const glint=smooth(12.0,12.8,t);
  if(glint>.02){
    const glints=[[-.42,.44,'+'],[.34,.34,'×'],[-.57,-.1,'·'],[.54,-.36,'*']];
    for(let i=0;i<glints.length;i++){
@@ -341,9 +394,12 @@ function drawHeart(t){
  }
 }
 function updateTimelineUI(){
- if(elapsed<5.5)status.textContent='01 / THE EYE';
- else if(elapsed<10.2)status.textContent='02 / INTO THE PUPIL';
- else status.textContent='03 / THE HEART';
+ if(elapsed<1.3)status.textContent='01 / OPENING';
+ else if(elapsed<3.0)status.textContent='02 / LOOK RIGHT';
+ else if(elapsed<5.4)status.textContent='03 / LOOK LEFT';
+ else if(elapsed<6.35)status.textContent='04 / BLINK';
+ else if(elapsed<10.9)status.textContent='05 / INTO THE PUPIL';
+ else status.textContent='06 / THE HEART';
  clock.textContent=`00:${String(Math.min(99,Math.floor(elapsed))).padStart(2,'0')}`;
 }
 function frame(now){
@@ -368,7 +424,7 @@ window.addEventListener('keydown',e=>{
  if(e.key.toLowerCase()==='r')replay();
 });
 window.addEventListener('resize',setup);
-buildEye();setup();syncPauseButton();requestAnimationFrame(frame);
+buildEye(false);buildEye(true);setup();syncPauseButton();requestAnimationFrame(frame);
 // For deterministic inspection, without affecting ordinary viewers.
 window.__previewTime=(t)=>{paused=true;elapsed=t;syncPauseButton();drawEyeASCII(elapsed);drawHeart(elapsed);updateTimelineUI()};
 })();
