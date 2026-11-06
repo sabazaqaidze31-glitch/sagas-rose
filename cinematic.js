@@ -18,6 +18,8 @@ const codeCanvas = document.createElement('canvas');
 const bg = codeCanvas.getContext('2d');
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const duration = 30;
+const visorEyeStart = 2.32;
+const visorExit = 4.95;
 const finalStart = 23.64;
 const gardenEnd = 24.45;
 const bouquetCloseup = { x: .36, y: .455 };
@@ -76,7 +78,7 @@ function gazeAt(t){
 }
 function gazeYAt(t){return gazeAt(t)*.07+1.4*Math.sin(t*2.1)*smooth(.7,1.4,t)*(1-smooth(5.0,5.4,t))}
 function opennessAt(t){
- const opening=mix(.12,1,smooth(.02,1.10,t));
+ const opening=mix(.20,1,smooth(-1.43,.66,t));
  const closing=smooth(5.39,5.55,t);
  const reopening=smooth(5.60,5.92,t);
  return opening*(1-.995*closing*(1-reopening));
@@ -194,6 +196,12 @@ function drawFinalMessage(t, origin) {
 }
 
 const lens = { x: .506, y: .472, radius: .044 };
+const visorEye = { x: .602, y: .506 };
+// Trace the right eye opening in the helmet artwork, in source coordinates.
+const visorUpper = [[.508,.519],[.527,.503],[.55,.495],[.58,.490],
+  [.61,.484],[.64,.480],[.675,.477],[.705,.476]];
+const visorLower = [[.508,.546],[.527,.542],[.55,.537],[.58,.531],
+  [.61,.522],[.64,.513],[.675,.500],[.705,.476]];
 const dark = 0x050608;
 const colors = Array.from({ length: 4096 }, (_, i) =>
   'rgb(' + (((i >> 8) & 15) * 17) + ',' + (((i >> 4) & 15) * 17) + ',' + ((i & 15) * 17) + ')'
@@ -269,20 +277,64 @@ function edgeLight(u, v, width = .12) {
   return smooth(0, width, Math.min(u, 1 - u, v, 1 - v));
 }
 
+function eyeLight(u, v) {
+  // Shape the light around the eye socket and cheek, away from the source edges.
+  const x = (u - .512) / .505;
+  const y = (v - .515 - (u - .5) * .085) / .475;
+  const contour = .018 * Math.sin(u * 37 + v * 18) + .013 * Math.sin(v * 44 - u * 15);
+  return 1 - smooth(.53, .98, Math.hypot(x, y) + contour);
+}
+
 function helmetShot(t) {
   const plate = artwork.helmet;
   const entering = smooth(2.35, 4.9, t);
+  const aim = smooth(2.18, 4.12, t);
   const scale = (1 + .07 * smooth(0, 2.35, t)) * Math.exp(entering * 2.7);
   const height = Math.min(H * .91, W * 1.50) * scale;
-  const frame = view(plate, height, mix(.50, .602, entering), mix(.48, .506, entering));
+  const frame = view(plate, height, mix(.50, visorEye.x, aim), mix(.48, visorEye.y, aim));
   const exposure = mix(.55, 1, smooth(0, .7, t)) * (1 - .58 * smooth(4.13, 4.72, t));
-  return (x, y) => {
+  const sample = (x, y) => {
     const u = (x - frame.x) / frame.width, v = (y - frame.y) / frame.height;
     const i = pixelIndex(plate, u, v);
     if (i < 0) return dark;
     const fire = (1 - smooth(.06, .24, u)) * (1 - smooth(.31, .53, v));
     const light = exposure * (1 - fire * (.10 + .085 * Math.sin(t * 10) + .05 * Math.sin(t * 19)));
     return blend(dark, pixelColor(plate, i, steelTones), light * edgeLight(u, v, .10));
+  };
+  return { frame, sample };
+}
+
+function openingEyeWidth() {
+  return Math.min(W * (W < H ? 1.15 : 1.02), H * 1.61);
+}
+
+function visorEyeShot(t) {
+  const helmet = helmetShot(t);
+  const { frame } = helmet;
+  const pastVisor = smooth(4.04, visorExit, t);
+  const visible = smooth(visorEyeStart, 3.68, t);
+  const eyeWidth = openingEyeWidth();
+  const pupilY = lens.y + .159 * (1 - opennessAt(t - 4.25));
+  const eye = eyeShot(t, null, {
+    width: mix(Math.min(frame.width * .236, eyeWidth), eyeWidth, pastVisor),
+    x: mix(frame.x + visorEye.x * frame.width, W / 2, pastVisor),
+    y: mix(frame.y + visorEye.y * frame.height, H / 2, pastVisor),
+    focusY: mix(pupilY, .515, pastVisor)
+  });
+  for (const column of gridColumns) {
+    const u = (column.x - frame.x) / frame.width;
+    column.inVisor = u > visorUpper[0][0] && u < visorUpper.at(-1)[0];
+    if (column.inVisor) {
+      column.visorTop = lidHeight(visorUpper, u);
+      column.visorBottom = lidHeight(visorLower, u);
+    }
+  }
+  return (x, y, column) => {
+    const v = (y - frame.y) / frame.height;
+    const slit = column.inVisor ? smooth(.001, .006, Math.min(v - column.visorTop, column.visorBottom - v)) : 0;
+    const reveal = mix(slit * visible, 1, pastVisor);
+    const steel = helmet.sample(x, y);
+    return reveal > 0 ? blend(steel, eye(x, y, column), reveal) : steel;
   };
 }
 
@@ -343,18 +395,19 @@ function gardenShot(t) {
   return { sample, bouquet };
 }
 
-function eyeShot(t, garden) {
+function eyeShot(t, garden, projection) {
   const plate = artwork.eye;
-  const local = Math.max(0, t - 4.25);
+  const local = t - 4.25;
   const aperture = opennessAt(local);
   const closed = 1 - aperture;
   const gaze = gazeAt(local) / 1580;
   const rise = gazeYAt(local) / 1050;
   const approach = smooth(9.85, 14.72, t);
-  const baseWidth = Math.min(W * (W < H ? 1.15 : 1.02), H * 1.61);
+  const baseWidth = openingEyeWidth();
   const maxZoom = Math.max(19, Math.hypot(W, H) * .57 / (baseWidth * lens.radius));
-  const width = baseWidth * Math.exp(approach * Math.log(maxZoom));
-  const frame = view(plate, width / plate.aspect, lens.x, mix(.515, lens.y, approach));
+  const width = projection?.width ?? baseWidth * Math.exp(approach * Math.log(maxZoom));
+  const focusY = projection?.focusY ?? mix(.515, lens.y, approach);
+  const frame = view(plate, width / plate.aspect, lens.x, focusY, projection?.x, projection?.y);
   const pupilX = frame.x + (lens.x + gaze) * frame.width;
   const pupilY = frame.y + (lens.y + rise) * frame.height;
   const radius = frame.width * lens.radius;
@@ -389,7 +442,8 @@ function eyeShot(t, garden) {
       }
     }
     const i = pixelIndex(plate, sourceU, sourceV);
-    let color = i < 0 ? dark : blend(dark, pixelColor(plate, i), edgeLight(u, v, .17));
+    const light = mix(eyeLight(u, v), 1, smooth(.20, .67, approach));
+    let color = i < 0 ? dark : blend(dark, pixelColor(plate, i), light);
     if (portal > 0) {
       const reflectedWindow = 1 - smooth(.7, 1.2, Math.hypot((u - .558) / .032, (v - .437) / .038));
       color = blend(color, dark, reflectedWindow * portal * .76);
@@ -476,16 +530,12 @@ function render(t) {
   if (!artwork) return;
 
   let messageOrigin = { x: W * bouquetCloseup.x, y: H * bouquetCloseup.y };
-  if (t < 4.20) {
-    renderGlyphs(helmetShot(t));
+  if (t < visorEyeStart) {
+    renderGlyphs(helmetShot(t).sample);
+  } else if (t < visorExit) {
+    renderGlyphs(visorEyeShot(t));
   } else if (t < 14.76) {
-    const eye = eyeShot(t, t >= 10.9 ? gardenShot(t).sample : null);
-    const transition = smooth(4.2, 4.95, t);
-    const helmet = transition < 1 ? helmetShot(t) : null;
-    renderGlyphs(helmet ? (x, y, column) => {
-      const slit = 1 - smooth(transition * .57, transition * .57 + .15, Math.abs(y / H - .5));
-      return blend(helmet(x, y), eye(x, y, column), transition * slit);
-    } : eye);
+    renderGlyphs(eyeShot(t, t >= 10.9 ? gardenShot(t).sample : null));
   } else if (t < gardenEnd) {
     const { sample, bouquet } = gardenShot(t);
     messageOrigin = bouquet;
