@@ -31,7 +31,7 @@ body{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#e6b
 </head>
 <body>
 <main id="stage">
-  <canvas id="scene" role="img" aria-label="An eye made of code opens, looks right and left, blinks, and moves into its pupil. A heart gives way to the message: You asked me where I disappeared to… I’m here."></canvas>
+  <canvas id="scene" role="img" aria-label="An eye made of code opens, looks right and left, blinks, and moves into its pupil. A heart gives way to the message: You asked me where I’d gone… I’m here."></canvas>
   <div id="overlay"></div>
   <div id="top"><div><strong>✦</strong> &nbsp; B E T W E E N &nbsp; B L I N K S</div><div id="label"> <span id="clock">00:00</span></div></div>
   <div id="bottom"><span id="status">01 / AWAKENING</span><div class="controls"><button id="toggle" aria-label="Pause animation">Ⅱ &nbsp; Pause</button><button id="replay" aria-label="Replay animation">↻ &nbsp; Replay</button></div></div>
@@ -373,6 +373,8 @@ function drawHeart(t){
  const size=Math.min(53*zoom*drawW/REF_W,Math.min(W,H)*.33)*pulse;
  const openness=opennessAt(t);
  const heartReveal=smooth(.03,1.05,t);
+ const depth=smooth(6.75,10.9,t);
+ const heartOpacity=mix(.20,1,depth);
  // The heart shares the pupil's origin and scale from the very first frame.
  // Only its individual code characters glow; there is no smooth heart silhouette.
  ctx.textAlign='center';ctx.textBaseline='middle';ctx.font=`700 ${fontSize*1.05}px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace`;
@@ -397,15 +399,18 @@ function drawHeart(t){
      const soft=Math.exp(-((xx+.1)**2/.8+(yy-.25)**2/.8));
      const stripe=Math.sin((xx+yy)*16)*.04;
      const lum=clamp(.42 +.30*(yy+.9)/2.2 + .35*highlight+.14*soft+stripe);
-     const R=255, G=Math.round(mix(30,191,highlight*.77 +.19*soft)), B=Math.round(mix(68,180,highlight*.64+.13*soft));
+     const R=Math.round(mix(185,255,depth));
+     const G=Math.round(mix(128,mix(30,191,highlight*.77+.19*soft),depth));
+     const B=Math.round(mix(135,mix(68,180,highlight*.64+.13*soft),depth));
      // Lower fragments soften, stretch, and fall before the upper edge follows.
      const phase=.06+.17*rand(c,r,33)+.10*yy;
      const release=smooth(phase,phase+.50,melt);
-     const alp=clamp((.65+.34*edge)*(.82+.18*rand(c,r,27)))*(1-smooth(.36,1,release))*heartReveal;
-     if(rand(c,r,19)>.27+.73*alp)continue;
+     const bodyAlpha=clamp((.65+.34*edge)*(.82+.18*rand(c,r,27)))*(1-smooth(.36,1,release))*heartReveal;
+     const alp=bodyAlpha*heartOpacity;
+     if(rand(c,r,19)>.27+.73*bodyAlpha)continue;
      ctx.fillStyle=`rgb(${R},${G},${B})`;ctx.globalAlpha=alp;
      if(highlight>.32|| (edge<.65&&rand(c,r,1)>.6)){
-       ctx.shadowBlur=7;ctx.shadowColor='rgba(255,67,112,.78)';
+       ctx.shadowBlur=1+6*depth;ctx.shadowColor=`rgba(255,67,112,${.15+.63*depth})`;
      }else ctx.shadowBlur=0;
      const chars= lum>.67?'@#MW880$':lum>.5?'8BXΣπΩ%&0': '0A4/<>+*=';
      const ch=chars[(rand(c,r,41)*chars.length)|0];
@@ -438,15 +443,16 @@ function drawHeart(t){
  }
 }
 function buildMessageMasks(){
- const narrow=W<560,step=narrow?3.7:4.4;
- const quiet=narrow?26:40,large=narrow?64:88;
+ const narrow=W<560,step=narrow?3.5:4.1;
+ const quiet=narrow?40:52,large=narrow?64:88;
  const specs=narrow?[
-   {text:'You asked me where',y:H*.5-68,start:15.7,size:quiet,kind:'quiet'},
-   {text:'I disappeared to…',y:H*.5-35,start:16.35,size:quiet,kind:'quiet'},
-   {text:'I’m here.',y:H*.5+47,start:18.2,size:large,kind:'arrival'}
+   {text:'You asked me',y:H*.5-86,start:15.7,size:quiet,kind:'quiet'},
+   {text:'where I’d gone…',y:H*.5-39,start:16.35,size:quiet,kind:'quiet'},
+   {text:'I’m here.',y:H*.5+64,start:18.2,size:large,kind:'arrival'}
  ]:[
-   {text:'You asked me where I disappeared to…',y:H*.5-47,start:15.7,size:quiet,kind:'quiet'},
-   {text:'I’m here.',y:H*.5+44,start:18.2,size:large,kind:'arrival'}
+   {text:'You asked me',y:H*.5-96,start:15.7,size:quiet,kind:'quiet'},
+   {text:'where I’d gone…',y:H*.5-39,start:16.35,size:quiet,kind:'quiet'},
+   {text:'I’m here.',y:H*.5+63,start:18.2,size:large,kind:'arrival'}
  ];
  const mask=document.createElement('canvas'),blur=document.createElement('canvas');
  mask.width=blur.width=W;mask.height=blur.height=H;
@@ -461,7 +467,7 @@ function buildMessageMasks(){
    }while(size>18);
    const width=m.measureText(spec.text).width;
    m.textAlign='center';m.textBaseline='middle';
-   m.lineWidth=step*.42;m.lineJoin='round';m.strokeStyle='#fff';m.fillStyle='#fff';
+   m.lineWidth=step*(spec.kind==='quiet'?.62:.42);m.lineJoin='round';m.strokeStyle='#fff';m.fillStyle='#fff';
    m.strokeText(spec.text,W/2,spec.y);m.fillText(spec.text,W/2,spec.y);
    const core=m.getImageData(0,0,W,H).data;
    b.clearRect(0,0,W,H);b.filter=spec.kind==='arrival'?'blur(15px)':'blur(7px)';
@@ -480,7 +486,7 @@ function buildMessageMasks(){
        const a=core[idx]/255,h=halo[idx]/255;
        const point={x:ix,y:iy,a,u:clamp((ix-x0)/(x1-x0)),seed:rand(col,row,spec.start)};
        if(a>.18)points.push(point);
-       else if(h>.018&&rand(col,row,88)>.31)glow.push({...point,a:h});
+       else if(h>.018&&rand(col,row,88)>(spec.kind==='arrival'?.31:.78))glow.push({...point,a:h});
        col++;
      }
      row++;
@@ -490,25 +496,26 @@ function buildMessageMasks(){
 }
 function drawFinalMessage(t){
  if(t<15.5)return;
- const chars='01@#%<>/{}+*Σπ';
+ const chars='01A8M#';
+ const haloChars='01+<>*';
  for(const part of messageParts){
    const first=smooth(part.start,part.start+.22,t);
    if(first<=0)continue;
    ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';
-   ctx.font=`700 ${part.step*1.15}px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace`;
+   ctx.font=`700 ${part.step*1.25}px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace`;
    for(const p of part.glow){
      const reveal=smooth(part.start+p.u*.86,part.start+p.u*.86+.34,t);
      if(reveal<=0)continue;
      ctx.globalAlpha=clamp(p.a*reveal*(part.kind==='arrival'?3.0:1.5),0,.48);
      ctx.fillStyle=part.kind==='arrival'?'#d96e52':'#b98466';
-     ctx.fillText(chars[Math.floor(p.seed*chars.length)],p.x,p.y);
+     ctx.fillText(haloChars[Math.floor(p.seed*haloChars.length)],p.x,p.y);
    }
    for(const p of part.points){
      const reveal=smooth(part.start+p.u*.86,part.start+p.u*.86+.34,t);
      if(reveal<=0)continue;
      ctx.globalAlpha=clamp((.55+.45*p.a)*reveal,0,1);
-     ctx.fillStyle=part.kind==='arrival'?(p.seed>.72?'#fff3df':'#ffd3ad'):'#f3d2b5';
-     ctx.shadowBlur=part.kind==='arrival'&&p.seed>.62?5:2;
+     ctx.fillStyle=part.kind==='arrival'?(p.seed>.72?'#fff3df':'#ffd3ad'):'#ffe6d1';
+     ctx.shadowBlur=part.kind==='arrival'&&p.seed>.62?5:0;
      ctx.shadowColor='#e17c5b';
      ctx.fillText(chars[Math.floor(p.seed*chars.length)],p.x,p.y);
    }
