@@ -18,7 +18,9 @@ const codeCanvas = document.createElement('canvas');
 const bg = codeCanvas.getContext('2d');
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const duration = 30;
-const finalStart = 24;
+const finalStart = 23.64;
+const gardenEnd = 24.45;
+const bouquetCloseup = { x: .36, y: .455 };
 let W = 0, H = 0, DPR = 1, grid = [], gridColumns = [], cellW = 0, cellH = 0, glyphFont = '';
 let messageParts = [], artwork = null, loadError = false;
 let last = performance.now(), elapsed = reducedMotion ? 1.1 : 0, paused = reducedMotion, lastRender = 0;
@@ -79,85 +81,116 @@ function opennessAt(t){
  const reopening=smooth(5.60,5.92,t);
  return opening*(1-.995*closing*(1-reopening));
 }
-function buildMessageMasks(){
- const narrow=W<560,step=narrow?3.5:4.1;
- const quiet=narrow?40:52,large=narrow?64:88;
- const specs=narrow?[
-   {text:'You asked me',y:H*.5-86,start:finalStart,size:quiet,kind:'quiet'},
-   {text:'where I’d gone…',y:H*.5-39,start:finalStart+.85,size:quiet,kind:'quiet'},
-   {text:'I’m here.',y:H*.5+64,start:finalStart+2.35,size:large,kind:'arrival'}
- ]:[
-   {text:'You asked me',y:H*.5-96,start:finalStart,size:quiet,kind:'quiet'},
-   {text:'where I’d gone…',y:H*.5-39,start:finalStart+.85,size:quiet,kind:'quiet'},
-   {text:'I’m here.',y:H*.5+63,start:finalStart+2.35,size:large,kind:'arrival'}
- ];
- const mask=document.createElement('canvas'),blur=document.createElement('canvas');
- mask.width=blur.width=W;mask.height=blur.height=H;
- const m=mask.getContext('2d',{willReadFrequently:true}),b=blur.getContext('2d',{willReadFrequently:true});
- messageParts=[];
- for(const spec of specs){
-   m.clearRect(0,0,W,H);
-   let size=spec.size;
-   do{m.font=`${spec.kind==='arrival'?'italic 700':'600'} ${size}px ${spec.kind==='arrival'?'Georgia,"Times New Roman",serif':'ui-sans-serif,system-ui,-apple-system,sans-serif'}`;
-     if(m.measureText(spec.text).width<W-32)break;
-     size--;
-   }while(size>18);
-   const width=m.measureText(spec.text).width;
-   m.textAlign='center';m.textBaseline='middle';
-   m.lineWidth=step*(spec.kind==='quiet'?.62:.42);m.lineJoin='round';m.strokeStyle='#fff';m.fillStyle='#fff';
-   m.strokeText(spec.text,W/2,spec.y);m.fillText(spec.text,W/2,spec.y);
-   const core=m.getImageData(0,0,W,H).data;
-   b.clearRect(0,0,W,H);b.filter=spec.kind==='arrival'?'blur(15px)':'blur(7px)';
-   b.drawImage(mask,0,0);b.filter='none';
-   const halo=b.getImageData(0,0,W,H).data;
-   const points=[],glow=[];
-   const x0=Math.max(0,Math.floor((W-width)/2-28)),x1=Math.min(W,Math.ceil((W+width)/2+28));
-   const y0=Math.max(0,Math.floor(spec.y-size*.95-25)),y1=Math.min(H,Math.ceil(spec.y+size*.95+25));
-   let row=0;
-   for(let y=y0;y<y1;y+=step){
-     let col=0;
-     for(let x=x0;x<x1;x+=step){
-       const ix=Math.round(x+step*.5),iy=Math.round(y+step*.5);
-       if(ix>=W||iy>=H)continue;
-       const idx=(iy*W+ix)*4+3;
-       const a=core[idx]/255,h=halo[idx]/255;
-       const point={x:ix,y:iy,a,u:clamp((ix-x0)/(x1-x0)),seed:rand(col,row,spec.start)};
-       if(a>.18)points.push(point);
-       else if(h>.018&&rand(col,row,88)>(spec.kind==='arrival'?.31:.78))glow.push({...point,a:h});
-       col++;
-     }
-     row++;
-   }
-   messageParts.push({...spec,points,glow,step});
- }
+function buildMessageMasks() {
+  const layoutScale = Math.min(1, H / 390);
+  const quiet = clamp(W * .116, 28, 67) * layoutScale;
+  const title = clamp(W * .218, 48, 132) * layoutScale;
+  const step = clamp(W / 146, 2.5, 4.8) * layoutScale;
+  const top = H * .5 - quiet * .95 - title * .22;
+  const specs = [
+    { text: 'You asked me', y: top, start: finalStart, size: quiet },
+    { text: 'where I’d gone…', y: top + quiet * 1.13, start: finalStart + .61, size: quiet },
+    { text: 'I’m here.', y: top + quiet * 1.92 + title * .50, start: finalStart + 1.82, size: title, title: true }
+  ];
+  const mask = document.createElement('canvas'), blur = document.createElement('canvas');
+  mask.width = blur.width = W;
+  mask.height = blur.height = H;
+  const m = mask.getContext('2d', { willReadFrequently: true });
+  const b = blur.getContext('2d', { willReadFrequently: true });
+  m.textAlign = 'center';
+  m.textBaseline = 'middle';
+  m.fillStyle = m.strokeStyle = '#fff';
+  m.lineJoin = 'round';
+  messageParts = [];
+
+  for (const spec of specs) {
+    m.clearRect(0, 0, W, H);
+    const family = spec.title ? 'Georgia,"Times New Roman",serif' : 'ui-sans-serif,system-ui,sans-serif';
+    const weight = spec.title ? 'italic 700 ' : '650 ';
+    m.font = weight + spec.size + 'px ' + family;
+    const size = spec.size * Math.min(1, Math.min(W * .86, 740) / m.measureText(spec.text).width);
+    m.font = weight + size + 'px ' + family;
+    m.lineWidth = step * .29;
+    m.strokeText(spec.text, W / 2, spec.y);
+    m.fillText(spec.text, W / 2, spec.y);
+    const width = m.measureText(spec.text).width;
+    const core = m.getImageData(0, 0, W, H).data;
+    let halo;
+    if (spec.title) {
+      b.clearRect(0, 0, W, H);
+      b.filter = 'blur(11px)';
+      b.drawImage(mask, 0, 0);
+      halo = b.getImageData(0, 0, W, H).data;
+    }
+    const x0 = Math.max(0, Math.floor((W - width) / 2 - 22));
+    const x1 = Math.min(W - 1, Math.ceil((W + width) / 2 + 22));
+    const y0 = Math.max(0, Math.floor(spec.y - size * .81 - 22));
+    const y1 = Math.min(H - 1, Math.ceil(spec.y + size * .81 + 22));
+    const points = [], glow = [];
+    for (let y = y0; y < y1; y += step) {
+      for (let x = x0; x < x1; x += step) {
+        const index = (Math.round(y) * W + Math.round(x)) * 4 + 3;
+        const seed = rand(x, y, spec.start);
+        const point = { x, y, seed, delay: .44 * clamp((x - x0) / (x1 - x0)) + seed * .17 };
+        if (core[index] > 61) {
+          points.push({ ...point, alpha: core[index] / 255 });
+        } else if (halo && halo[index] > 7 && seed > .74) {
+          glow.push({ ...point, alpha: halo[index] / 255 });
+        }
+      }
+    }
+    messageParts.push({ ...spec, points, glow, step, font: m.font });
+  }
 }
-function drawFinalMessage(t){
- if(t<finalStart)return;
- const chars='01A8M#';
- const haloChars='01+<>*';
- for(const part of messageParts){
-   const first=smooth(part.start,part.start+.22,t);
-   if(first<=0)continue;
-   ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';
-   ctx.font=`700 ${part.step*1.25}px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace`;
-   for(const p of part.glow){
-     const reveal=smooth(part.start+p.u*.86,part.start+p.u*.86+.34,t);
-     if(reveal<=0)continue;
-     ctx.globalAlpha=clamp(p.a*reveal*(part.kind==='arrival'?3.0:1.5),0,.48);
-     ctx.fillStyle=part.kind==='arrival'?'#d96e52':'#b98466';
-     ctx.fillText(haloChars[Math.floor(p.seed*haloChars.length)],p.x,p.y);
-   }
-   for(const p of part.points){
-     const reveal=smooth(part.start+p.u*.86,part.start+p.u*.86+.34,t);
-     if(reveal<=0)continue;
-     ctx.globalAlpha=clamp((.55+.45*p.a)*reveal,0,1);
-     ctx.fillStyle=part.kind==='arrival'?(p.seed>.72?'#fff3df':'#ffd3ad'):'#ffe6d1';
-     ctx.shadowBlur=part.kind==='arrival'&&p.seed>.62?5:0;
-     ctx.shadowColor='#e17c5b';
-     ctx.fillText(chars[Math.floor(p.seed*chars.length)],p.x,p.y);
-   }
-   ctx.restore();
- }
+
+function drawFinalMessage(t, origin) {
+  if (t < finalStart - 1.52) return;
+  const characters = '080A6M';
+  ctx.save();
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  for (const part of messageParts) {
+    const body = smooth(part.start + .36, part.start + .95, t);
+    if (body > 0) {
+      // A faint letter silhouette holds the word shapes together in compressed video.
+      ctx.font = part.font;
+      ctx.fillStyle = part.title ? '#f1c491' : '#dfcbb9';
+      ctx.globalAlpha = body * .29;
+      ctx.fillText(part.text, W / 2, part.y);
+    }
+
+    ctx.font = '700 ' + part.step * 1.49 + 'px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace';
+    ctx.fillStyle = '#d28a60';
+    for (const p of part.glow) {
+      const reveal = smooth(part.start + p.delay, part.start + p.delay + .55, t);
+      if (reveal <= 0) continue;
+      ctx.globalAlpha = Math.min(.24, p.alpha * 1.2) * reveal;
+      ctx.fillText(p.seed > .86 ? '0' : '+', p.x, p.y);
+    }
+
+    for (const p of part.points) {
+      const arrival = part.start + p.delay;
+      const char = characters[Math.floor(p.seed * characters.length)];
+      if (p.seed > .83 && t < arrival) {
+        const launch = arrival - 1.28 - .23 * p.seed;
+        const travel = smooth(launch, arrival, t);
+        if (travel <= 0) continue;
+        const spread = (p.seed - .915) * W * .45;
+        const x = mix(origin.x + spread, p.x, travel);
+        const y = mix(origin.y + spread * .43, p.y, travel) -
+          Math.sin(Math.PI * travel) * H * (.048 + .12 * (p.seed - .83));
+        ctx.fillStyle = p.seed > .93 ? '#f5c58b' : '#dc9980';
+        ctx.globalAlpha = smooth(0, .21, travel) * .83;
+        ctx.fillText(char, x, y);
+      }
+      const reveal = smooth(arrival - .08, arrival + .29, t);
+      if (reveal <= 0) continue;
+      ctx.fillStyle = part.title && p.seed < .26 ? '#f8c892' : '#fff2df';
+      ctx.globalAlpha = (.77 + .23 * p.alpha) * reveal;
+      ctx.fillText(char, p.x, p.y);
+    }
+  }
+  ctx.restore();
 }
 
 const lens = { x: .506, y: .472, radius: .044 };
@@ -258,14 +291,24 @@ function gardenShot(t) {
   const mobile = W < H * .83;
   const time = Math.max(0, t - 13.8);
   const push = smooth(14.8, 22.6, t);
-  const drift = Math.sin(time * .48) * W * .013;
+  const drift = mix(-.016, .019, smooth(14.5, 20.8, t)) * W + Math.sin(time * .48) * W * .011;
   const backdropHeight = (mobile ? Math.min(H * .82, W * 1.43) : Math.max(H * .89, W / garden.aspect)) * (1 + .07 * push);
   const backdrop = view(garden, backdropHeight, mobile ? .655 : .50, .49, W / 2 + drift * .45);
   const actorHeight = Math.min(H * .81, W * .89 / couple.aspect, backdropHeight * .90) * (1 + .08 * push);
   const actors = view(couple, actorHeight, .49, .51, W / 2 + drift, H * .51);
   const lift = .043 * smooth(14.4, 16.6, t) * (1 - .72 * smooth(17.9, 21.9, t));
   const lean = .033 * Math.sin(time * .92);
-  return (x, y) => {
+  const close = smooth(20.55, 22.73, t);
+  const cameraScale = 1 + close * .39;
+  const flowersX = actors.x + actors.width * (.108 + lean * .9);
+  const flowersY = actors.y + actors.height * (.222 - lift * .9);
+  const bouquet = {
+    x: mix(flowersX, W * bouquetCloseup.x, close),
+    y: mix(flowersY, H * bouquetCloseup.y, close)
+  };
+  const sample = (screenX, screenY) => {
+    const x = flowersX + (screenX - bouquet.x) / cameraScale;
+    const y = flowersY + (screenY - bouquet.y) / cameraScale;
     const gx = (x - backdrop.x) / backdrop.width, gy = (y - backdrop.y) / backdrop.height;
     const gardenIndex = pixelIndex(garden, gx, gy);
     const focus = 1 - smooth(.12, .39, Math.abs(x / W - .5));
@@ -297,6 +340,7 @@ function gardenShot(t) {
     }
     return blend(ground, color, couple.data[i + 3] / 255);
   };
+  return { sample, bouquet };
 }
 
 function eyeShot(t, garden) {
@@ -347,6 +391,8 @@ function eyeShot(t, garden) {
     const i = pixelIndex(plate, sourceU, sourceV);
     let color = i < 0 ? dark : blend(dark, pixelColor(plate, i), edgeLight(u, v, .17));
     if (portal > 0) {
+      const reflectedWindow = 1 - smooth(.7, 1.2, Math.hypot((u - .558) / .032, (v - .437) / .038));
+      color = blend(color, dark, reflectedWindow * portal * .76);
       const dx = x - pupilX, dy = y - pupilY;
       const edge = 1 - smooth(.76, 1.02, Math.hypot(dx, dy) / radius);
       if (edge > 0 || finish > 0) {
@@ -358,13 +404,12 @@ function eyeShot(t, garden) {
   };
 }
 
-function renderGlyphs(sampler, amount = 1) {
+function renderGlyphs(sampler) {
   ctx.font = glyphFont;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.globalAlpha = amount;
   for (const point of grid) {
-    const color = sampler(point.x, point.y, point.column);
+    const color = sampler(point.x, point.y, point.column, point.seed);
     const r = color >> 16, g = (color >> 8) & 255, b = color & 255;
     const light = .213 * r + .715 * g + .072 * b;
     if (light < 12) continue;
@@ -375,7 +420,6 @@ function renderGlyphs(sampler, amount = 1) {
     ctx.fillStyle = colors[key];
     ctx.fillText(chars[(point.seed * chars.length) | 0], point.x, point.y);
   }
-  ctx.globalAlpha = 1;
 }
 
 function floatingGlyphs(t, amount) {
@@ -384,8 +428,8 @@ function floatingGlyphs(t, amount) {
   ctx.textBaseline = 'middle';
   ctx.font = glyphFont;
   const chars = '01+*';
-  for (let i = 0; i < 40; i++) {
-    const y = fract(rand(i, 4) + (t - 14) * (.022 + rand(i, 5) * .034)) * H;
+  for (let i = 0; i < 26; i++) {
+    const y = H * (.14 + .72 * fract(rand(i, 4) + (t - 14) * (.023 + rand(i, 5) * .038)));
     const x = W * (.07 + .86 * rand(i, 7)) + Math.sin(t * .8 + i) * (12 + i % 7);
     const alpha = smooth(0, .11, y / H) * (1 - smooth(.83, 1, y / H));
     ctx.globalAlpha = amount * alpha * (.25 + rand(i, 6) * .49);
@@ -431,19 +475,32 @@ function render(t) {
   }
   if (!artwork) return;
 
+  let messageOrigin = { x: W * bouquetCloseup.x, y: H * bouquetCloseup.y };
   if (t < 4.20) {
     renderGlyphs(helmetShot(t));
   } else if (t < 14.76) {
-    const eye = eyeShot(t, t >= 10.9 ? gardenShot(t) : null);
+    const eye = eyeShot(t, t >= 10.9 ? gardenShot(t).sample : null);
     const transition = smooth(4.2, 4.95, t);
     const helmet = transition < 1 ? helmetShot(t) : null;
-    renderGlyphs(helmet ? (x, y, c) => blend(helmet(x, y), eye(x, y, c), transition) : eye);
-  } else if (t < finalStart) {
-    const fade = 1 - smooth(22.25, finalStart, t);
-    renderGlyphs(gardenShot(t), fade);
-    floatingGlyphs(t, fade * smooth(14.8, 16.4, t));
+    renderGlyphs(helmet ? (x, y, column) => {
+      const slit = 1 - smooth(transition * .57, transition * .57 + .15, Math.abs(y / H - .5));
+      return blend(helmet(x, y), eye(x, y, column), transition * slit);
+    } : eye);
+  } else if (t < gardenEnd) {
+    const { sample, bouquet } = gardenShot(t);
+    messageOrigin = bouquet;
+    const dissolve = smooth(21.77, gardenEnd, t);
+    const lastLight = smooth(21.52, 22.26, t) * (1 - smooth(22.41, 23.55, t));
+    renderGlyphs(dissolve > 0 || lastLight > 0 ? (x, y, column, seed) => {
+      const distance = Math.hypot((x - bouquet.x) / W, (y - bouquet.y) / H);
+      // Let the periphery recede first, leaving the flowers to release the words.
+      const remaining = 1 - smooth(.02, .94, dissolve * (1 + .55 * distance + .16 * seed));
+      const bloom = (1 - smooth(.025, .21, distance)) * lastLight * .17;
+      return blend(dark, blend(sample(x, y), 0xd99564, bloom), remaining);
+    } : sample);
+    floatingGlyphs(t, (1 - dissolve) * smooth(14.8, 16.4, t));
   }
-  drawFinalMessage(t);
+  drawFinalMessage(t, messageOrigin);
 }
 
 function updateTimelineUI() {
